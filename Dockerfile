@@ -26,7 +26,7 @@ ENV DB_PASSWORD password
 # Must match settings in entrypoint-artifactory.sh
 ENV ARTIFACTORY_USER_ID 1030
 ENV ARTIFACTORY_USER_NAME artifactory
-ENV ARTIFACTORY_PID ${ARTIFACTORY_HOME}/run/artifactory.pidbash
+ENV ARTIFACTORY_PID ${ARTIFACTORY_HOME}/run/artifactory.pid
 
 # Disable Tomcat's manager application.
 RUN rm -rf webapps/*
@@ -67,6 +67,8 @@ RUN curl -L# -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION
 
 # Deploy Entry Point
 COPY files/entrypoint-artifactory.sh / 
+# disable permissions check (assume correct)
+RUN sed 's/^\(setupPermissions\)$/#\1/m' /entrypoint-artifactory.sh
 
 # Fix windows linebreaks
 RUN sed -i 's/\r//' /entrypoint-artifactory.sh
