@@ -1,12 +1,12 @@
 # Artifactory for OpenShift
 #
-# VERSION 		5.4.0epos
+# VERSION 		5.4.1epos
 
 #official image name: eposcat/artifactory
 
 FROM tomcat:8-jre8
 
-# based on existing repository https://github.com/fkirill/dockerfile-artifactory
+# loosely based on existing repository https://github.com/fkirill/dockerfile-artifactory
 MAINTAINER Daniel Zauner <daniel.zauner@epos-cat.de>
 
 # To update, check https://bintray.com/jfrog/artifactory-pro/jfrog-artifactory-pro-zip/_latestVersion
@@ -22,9 +22,6 @@ ENV ARTIFACTORY_DATA /data/artifactory
 ENV DB_TYPE postgresql
 ENV DB_USER artifactory
 ENV DB_PASSWORD password
-
-# Sharing home folder to allow run as non-root later
-#RUN chmod -R 777 . *
 
 # Artifactory homes
 RUN mkdir -pv /data/artifactory
@@ -59,9 +56,11 @@ COPY files/entrypoint-artifactory.sh /
 # Adjust directory for sanity checks
 RUN sed -i 's/\$ARTIFACTORY_HOME\/tomcat/\/usr\/local\/tomcat/g' /entrypoint-artifactory.sh
 
-# Expose Artifactories data directory and port
+# Change default port to 8080
+RUN sed -i 's/port="8081"/port="8080"/' ${ARTIFACTORY_HOME}/tomcat/conf/server.xml
+
+# Expose Artifactories data directory
 VOLUME /data/artifactory
-EXPOSE 8081
 
 WORKDIR /data/artifactory
 
