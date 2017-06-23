@@ -31,24 +31,19 @@ RUN mkdir -pv /data/artifactory
 #RUN chmod 777 -R /data/artifactory
 RUN chown -R 1030:1030 /data
 
-# Running under non-root user to allow non-privileged container execution
-USER 1030
-
 # Disable Tomcat's manager application.
 RUN rm -rf webapps/*
+
+# Grab PostgreSQL driver
+RUN curl -L# -o /usr/local/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
 
 # Expose tomcat runtime options through the RUNTIME_OPTS environment variable.
 #   Example to set the JVM's max heap size to 256MB use the flag
 #   '-e RUNTIME_OPTS="-Xmx256m"' when starting a container.
 RUN echo 'export CATALINA_OPTS="$RUNTIME_OPTS"' > bin/setenv.sh
 
-#RUN rm -rf webapps/*
-
-# Redirect URL from / to artifactory/ using UrlRewriteFilter
-#RUN \
-#  mkdir -p webapps/ROOT/WEB-INF/lib && \
-#  cp /urlrewritefilter.jar webapps/ROOT/WEB-INF/lib && \
-#  cp /urlrewrite.xml webapps/ROOT/WEB-INF/
+# Running under non-root user to allow non-privileged container execution
+#USER 1030
 
 # Fetch and install Artifactory OSS war archive.
 RUN \
@@ -57,9 +52,6 @@ RUN \
   mkdir -p /var/opt/artifactory && \
   mv /tmp/artifactory-pro-${ARTIFACTORY_VERSION}/* /var/opt/artifactory && \
   rm -r /tmp/artifactory.zip /tmp/artifactory-pro-${ARTIFACTORY_VERSION}
-
-# Grab PostgreSQL driver
-RUN curl -L# -o /usr/local/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
 
 # Deploy Entry Point
 RUN apt-get update && apt-get install -y gosu
