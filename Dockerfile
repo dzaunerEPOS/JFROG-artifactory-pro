@@ -26,6 +26,7 @@ ENV DB_PASSWORD password
 # Must match settings in entrypoint-artifactory.sh
 ENV ARTIFACTORY_USER_ID 1030
 ENV ARTIFACTORY_USER_NAME artifactory
+ENV ARTIFACTORY_PID ${ARTIFACTORY_HOME}/run/artifactory.pidbash
 
 # Disable Tomcat's manager application.
 RUN rm -rf webapps/*
@@ -55,6 +56,7 @@ RUN \
   mv /tmp/artifactory-pro-${ARTIFACTORY_VERSION}/* /var/opt/artifactory && \
   rm -r /tmp/artifactory.zip /tmp/artifactory-pro-${ARTIFACTORY_VERSION}
 
+
 # FIXME:
 # - no run folder generated, let's see if this works
 # - logs are still stored in ARTIFACTORY_HOME, link to ARTIFACTORY_DATA (persistent)
@@ -64,7 +66,6 @@ RUN rm -r $ARTIFACTORY_HOME/logs && ln -s $ARTIFACTORY_DATA/logs $ARTIFACTORY_HO
 
 # Grab PostgreSQL driver
 RUN curl -L# -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
-RUN chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} /var/opt/artifactory
 
 # Deploy Entry Point
 COPY files/entrypoint-artifactory.sh / 
@@ -76,8 +77,10 @@ RUN sed -i 's/\r//' /entrypoint-artifactory.sh
 RUN sed -i 's/port="8081"/port="8080"/' ${ARTIFACTORY_HOME}/tomcat/conf/server.xml
 
 # Drop privileges
+RUN chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} /var/opt/artifactory
+RUN chmod -R 777 ${ARTIFACTORY_HOME}
 RUN sed -i 's/gosu \${ARTIFACTORY_USER_NAME} //' /entrypoint-artifactory.sh
-USER 1030
+USER $ARTIFACTORY_USER
 
 # Expose Artifactories data directory
 VOLUME /data/artifactory
