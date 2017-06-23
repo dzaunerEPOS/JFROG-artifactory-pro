@@ -44,8 +44,6 @@ RUN useradd -M -s /usr/sbin/nologin --uid ${ARTIFACTORY_USER_ID} --user-group ${
 
 # Create Artifactory home
 RUN mkdir -pv /data/artifactory
-#RUN chmod 777 -R /data/artifactory
-RUN chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} /data
 
 
 # Fetch and install Artifactory OSS war archive.
@@ -79,6 +77,8 @@ RUN sed -i 's/port="8081"/port="8080"/' ${ARTIFACTORY_HOME}/tomcat/conf/server.x
 # Drop privileges
 RUN chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} /var/opt/artifactory
 RUN chmod -R 777 ${ARTIFACTORY_HOME}
+RUN chmod 777 -R /data/artifactory
+RUN chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} /data
 RUN sed -i 's/gosu \${ARTIFACTORY_USER_NAME} //' /entrypoint-artifactory.sh
 USER $ARTIFACTORY_USER
 
