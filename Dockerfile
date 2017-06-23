@@ -69,6 +69,8 @@ RUN curl -L# -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION
 COPY files/entrypoint-artifactory.sh / 
 # disable permissions check (assume correct)
 RUN sed -i 's/^\(setupPermissions\)$/#\1/m' /entrypoint-artifactory.sh
+# prevent entryfile from chown'ing around like crazy...
+RUN sed -i 's/chown/#chown/' /entrypoint-artifactory.sh
 
 # Fix windows linebreaks
 RUN sed -i 's/\r//' /entrypoint-artifactory.sh
