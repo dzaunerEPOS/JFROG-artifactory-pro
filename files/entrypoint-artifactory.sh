@@ -461,7 +461,7 @@ setDBType () {
 
         case "$DB_TYPE" in
             postgresql)
-                if ! ls /usr/local/tomcat/lib/postgresql-*.jar 1> /dev/null 2>&1; then
+                if ! ls $ARTIFACTORY_HOME/tomcat/lib/postgresql-*.jar 1> /dev/null 2>&1; then
                     errorExit "No postgresql connector found"
                 fi
                 setDBConf
@@ -535,4 +535,4 @@ addExtraJavaArgs
 echo; echo "====================================="; echo
 
 # Run Artifactory as ARTIFACTORY_USER_NAME user
-exec gosu ${ARTIFACTORY_USER_NAME} ${ARTIFACTORY_HOME}/bin/artifactory.sh
+${ARTIFACTORY_HOME}/bin/artifactory.sh

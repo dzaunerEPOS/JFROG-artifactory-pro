@@ -23,24 +23,29 @@ ENV DB_TYPE postgresql
 ENV DB_USER artifactory
 ENV DB_PASSWORD password
 
-# Artifactory homes
-RUN mkdir -pv /data/artifactory
-#RUN chmod 777 -R /data/artifactory
-RUN chown -R 1030:1030 /data
+# Must match settings in entrypoint-artifactory.sh
+ENV ARTIFACTORY_USER_ID 1030
+ENV ARTIFACTORY_USER_NAME artifactory
 
 # Disable Tomcat's manager application.
 RUN rm -rf webapps/*
 
 # Grab PostgreSQL driver
-RUN curl -L# -o /usr/local/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
+#RUN curl -L# -o /usr/local/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
 
 # Expose tomcat runtime options through the RUNTIME_OPTS environment variable.
 #   Example to set the JVM's max heap size to 256MB use the flag
 #   '-e RUNTIME_OPTS="-Xmx256m"' when starting a container.
 RUN echo 'export CATALINA_OPTS="$RUNTIME_OPTS"' > bin/setenv.sh
 
-# Running under non-root user to allow non-privileged container execution
-#USER 1030
+# Create Artifactory User
+RUN useradd -M -s /usr/sbin/nologin --uid ${ARTIFACTORY_USER_ID} --user-group ${ARTIFACTORY_USER_NAME}
+
+# Create Artifactory home
+RUN mkdir -pv /data/artifactory
+#RUN chmod 777 -R /data/artifactory
+RUN chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} /data
+
 
 # Fetch and install Artifactory OSS war archive.
 RUN \
@@ -50,19 +55,36 @@ RUN \
   mv /tmp/artifactory-pro-${ARTIFACTORY_VERSION}/* /var/opt/artifactory && \
   rm -r /tmp/artifactory.zip /tmp/artifactory-pro-${ARTIFACTORY_VERSION}
 
+# FIXME:
+# - no run folder generated, let's see if this works
+# - logs are still stored in ARTIFACTORY_HOME, link to ARTIFACTORY_DATA (persistent)
+RUN mkdir -p /var/opt/artifactory/run
+RUN rm -r $ARTIFACTORY_HOME/logs && ln -s $ARTIFACTORY_DATA/logs $ARTIFACTORY_HOME/logs
+
+
+# Grab PostgreSQL driver
+RUN curl -L# -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
+RUN chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} /var/opt/artifactory
+
 # Deploy Entry Point
-RUN apt-get update && apt-get install -y gosu
 COPY files/entrypoint-artifactory.sh / 
-# Adjust directory for sanity checks
-RUN sed -i 's/\$ARTIFACTORY_HOME\/tomcat/\/usr\/local\/tomcat/g' /entrypoint-artifactory.sh
+
+# Fix windows linebreaks
+RUN sed -i 's/\r//' /entrypoint-artifactory.sh
 
 # Change default port to 8080
 RUN sed -i 's/port="8081"/port="8080"/' ${ARTIFACTORY_HOME}/tomcat/conf/server.xml
+
+# Drop privileges
+RUN sed -i 's/gosu \${ARTIFACTORY_USER_NAME} //' /entrypoint-artifactory.sh
+USER 1030
 
 # Expose Artifactories data directory
 VOLUME /data/artifactory
 
 WORKDIR /data/artifactory
+
+EXPOSE 8080
 
 ENTRYPOINT ["/bin/bash"]
 CMD ["/entrypoint-artifactory.sh"]
