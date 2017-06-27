@@ -61,6 +61,7 @@ RUN \
 RUN mkdir -p /var/opt/artifactory/run
 RUN rm -r $ARTIFACTORY_HOME/logs && ln -s $ARTIFACTORY_DATA/logs $ARTIFACTORY_HOME/logs
 
+# DEBUG
 
 # Grab PostgreSQL driver
 RUN curl -L# -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
