@@ -87,6 +87,9 @@ RUN chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} /data
 RUN sed -i 's/gosu \${ARTIFACTORY_USER_NAME} //' /entrypoint-artifactory.sh
 USER $ARTIFACTORY_USER_ID
 
+
+# DEBUG
+
 # Expose Artifactories data directory
 VOLUME /data/artifactory
 
