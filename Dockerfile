@@ -67,10 +67,10 @@ RUN curl -L# -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION
 RUN \
   ln -s ${ARTIFACTORY_DATA}/access ${ARTIFACTORY_HOME}/access && \
   ln -s ${ARTIFACTORY_DATA}/backup ${ARTIFACTORY_HOME}/backup && \
-  ln -s ${ARTIFACTORY_DATA}/data ${ARTIFACTORY_DATA}/data && \
-  ln -s ${ARTIFACTORY_DATA}/logs ${ARTIFACTORY_DATA}/logs && \
+  ln -s ${ARTIFACTORY_DATA}/data ${ARTIFACTORY_HOME}/data && \
+  ln -s ${ARTIFACTORY_DATA}/logs ${ARTIFACTORY_HOME}/logs && \
   mv ${ARTIFACTORY_HOME}/etc ${ARTIFACTORY_DATA} && \
-  ln -s ${ARTIFACTORY_DATA}/etc ${ARTIFACTORY_DATA}/etc
+  ln -s ${ARTIFACTORY_DATA}/etc ${ARTIFACTORY_HOME}/etc
 
 # Deploy Entry Point
 COPY files/entrypoint-artifactory.sh / 
