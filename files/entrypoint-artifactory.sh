@@ -535,4 +535,4 @@ addExtraJavaArgs
 echo; echo "====================================="; echo
 
 # Run Artifactory as ARTIFACTORY_USER_NAME user
-${ARTIFACTORY_HOME}/bin/artifactory.sh
+exec gosu ${ARTIFACTORY_USER_NAME} ${ARTIFACTORY_HOME}/bin/artifactory.sh
