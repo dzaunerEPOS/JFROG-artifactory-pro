@@ -18,7 +18,8 @@ ENV \
   DB_USER=artifactory \
   DB_PASSWORD=password \
   ARTIFACTORY_USER_ID=1030 \
-  ARTIFACTORY_USER_NAME=artifactory
+  ARTIFACTORY_USER_NAME=artifactory \
+  PS1=${debian_chroot:+($debian_chroot)}\\h:\\w\\$
 
 # Disable Tomcat's manager application.
 RUN rm -rf /usr/local/tomcat/webapps/*
@@ -106,6 +107,7 @@ HEALTHCHECK --interval=5m --timeout=3s \
 VOLUME ["/data/artifactory", "/data/artifactory/backup"]
 
 WORKDIR /data/artifactory
+SHELL ["/bin/bash"]
 
 EXPOSE 8080
 
