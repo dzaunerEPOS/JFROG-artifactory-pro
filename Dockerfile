@@ -107,4 +107,4 @@ SHELL ["/bin/bash"]
 
 EXPOSE 8080
 
-ENTRYPOINT exec sh ${ARTIFACTORY_HOME}/bin/artifactory.sh
+ENTRYPOINT ["/var/opt/artifactory/bin/artifactory.sh"]
