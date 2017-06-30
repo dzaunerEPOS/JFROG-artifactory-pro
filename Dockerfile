@@ -4,7 +4,7 @@
 
 #official image name: eposcat/artifactory
 
-FROM tomcat:8-jre8
+FROM openjdk:8-jdk
 
 # loosely based on existing repository https://github.com/fkirill/dockerfile-artifactory
 MAINTAINER Daniel Zauner <daniel.zauner@epos-cat.de>
@@ -21,9 +21,6 @@ ENV \
   ARTIFACTORY_USER_ID=1030 \ 
   ARTIFACTORY_USER_NAME=artifactory \ 
   PS1="${debian_chroot:+($debian_chroot)}\\h:\\w\\$ "
-
-# Disable Tomcat's manager application.
-RUN rm -rf /usr/local/tomcat/webapps/*
 
 # Expose tomcat runtime options through the RUNTIME_OPTS environment variable.
 #   Example to set the JVM's max heap size to 256MB use the flag
