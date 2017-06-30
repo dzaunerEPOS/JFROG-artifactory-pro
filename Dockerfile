@@ -27,10 +27,6 @@ ENV \
 #   '-e RUNTIME_OPTS="-Xmx256m"' when starting a container.
 RUN echo 'export CATALINA_OPTS="$RUNTIME_OPTS"' > bin/setenv.sh
 
-# Create Artifactory User
-#RUN useradd -M -s /usr/sbin/nologin --uid ${ARTIFACTORY_USER_ID} --user-group ${ARTIFACTORY_USER_NAME}
-
-
 # Create Artifactory home directory structure:
 #  - access:  Subfolder for Access WAR
 #  - etc:     Omitted as the stock etc will be moved over
