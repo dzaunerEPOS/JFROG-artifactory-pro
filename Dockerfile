@@ -10,23 +10,15 @@ FROM tomcat:8-jre8
 MAINTAINER Daniel Zauner <daniel.zauner@epos-cat.de>
 
 # To update, check https://bintray.com/jfrog/artifactory-pro/jfrog-artifactory-pro-zip/_latestVersion
-ENV ARTIFACTORY_VERSION 5.4.1
-ENV ARTIFACTORY_SHA1 bd08d6dc83b4d987f36e53bf727baa68da946aff0ca4c286dccb7fcaec0faf76
-ENV ARTIFACTORY_URL https://bintray.com/jfrog/artifactory-pro/download_file?file_path=org/artifactory/pro/jfrog-artifactory-pro/${ARTIFACTORY_VERSION}/jfrog-artifactory-pro-${ARTIFACTORY_VERSION}.zip
-
-ENV POSTGRESQL_JAR_VERSION 9.4.1212
-ENV POSTGRESQL_JAR https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_JAR_VERSION}.jar
-
-ENV ARTIFACTORY_HOME /var/opt/artifactory
-ENV ARTIFACTORY_DATA /data/artifactory
-ENV DB_TYPE postgresql
-ENV DB_USER artifactory
-ENV DB_PASSWORD password
-
-# Must match settings in entrypoint-artifactory.sh
-ENV ARTIFACTORY_USER_ID 1030
-ENV ARTIFACTORY_USER_NAME artifactory
-ENV ARTIFACTORY_PID ${ARTIFACTORY_HOME}/run/artifactory.pid
+# - ARTIFACTORY_USER: Must match settings in entrypoint-artifactory.sh
+ENV \
+  ARTIFACTORY_HOME=/var/opt/artifactory \
+  ARTIFACTORY_DATA=/data/artifactory \
+  DB_TYPE=postgresql \
+  DB_USER=artifactory \
+  DB_PASSWORD=password \
+  ARTIFACTORY_USER_ID=1030 \
+  ARTIFACTORY_USER_NAME=artifactory
 
 # Disable Tomcat's manager application.
 RUN rm -rf /usr/local/tomcat/webapps/*
@@ -37,7 +29,7 @@ RUN rm -rf /usr/local/tomcat/webapps/*
 RUN echo 'export CATALINA_OPTS="$RUNTIME_OPTS"' > bin/setenv.sh
 
 # Create Artifactory User
-RUN useradd -M -s /usr/sbin/nologin --uid ${ARTIFACTORY_USER_ID} --user-group ${ARTIFACTORY_USER_NAME}
+#RUN useradd -M -s /usr/sbin/nologin --uid ${ARTIFACTORY_USER_ID} --user-group ${ARTIFACTORY_USER_NAME}
 
 # Create Artifactory home directory structure:
 #  - access:  Subfolder for Access WAR
@@ -54,16 +46,25 @@ RUN mkdir -p ${ARTIFACTORY_DATA} && \
 
 # Fetch and install Artifactory Pro.
 RUN \
-  curl -L# -o /tmp/artifactory.zip ${ARTIFACTORY_URL} && \
-  unzip /tmp/artifactory.zip -d /tmp && \
+  ARTIFACTORY_VERSION=5.4.2 \
+  ARTIFACTORY_URL=https://bintray.com/jfrog/artifactory-pro/download_file?file_path=org/artifactory/pro/jfrog-artifactory-pro/${ARTIFACTORY_VERSION}/jfrog-artifactory-pro-${ARTIFACTORY_VERSION}.zip \
+  ARTIFACTORY_SHA256=1b4de1058d99a1c861765a9cc5cf7541106cf953b61a30aca5e5b0c42201d14b \
+  ARTIFACTORY_TEMP=$(mktemp -t "$(basename $0).XXXXXXXXXX.zip") && \
+    curl -L -o ${ARTIFACTORY_TEMP} ${ARTIFACTORY_URL} && \
+  printf '%s\t%s\n' $ARTIFACTORY_SHA256 $ARTIFACTORY_TEMP | sha256sum -c && \
+  unzip $ARTIFACTORY_TEMP -d /tmp && \
   mv /tmp/artifactory-pro-${ARTIFACTORY_VERSION} ${ARTIFACTORY_HOME} && \
   find $ARTIFACTORY_HOME -type f -name "*.exe" -o -name "*.bat" | xargs /bin/rm && \
-  rm -r /tmp/artifactory.zip
+  rm -r $ARTIFACTORY_TEMP
 
 # Grab PostgreSQL driver
-RUN curl -L# -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
+RUN \
+  POSTGRESQL_JAR_VERSION=9.4.1212 \
+  POSTGRESQL_JAR=https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_JAR_VERSION}.jar && \
+  curl -L -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
 
 # Link folders
+# etc folder is copied over and linked back to preserve stock config
 RUN \
   ln -s ${ARTIFACTORY_DATA}/access ${ARTIFACTORY_HOME}/access && \
   ln -s ${ARTIFACTORY_DATA}/backup ${ARTIFACTORY_HOME}/backup && \
@@ -80,7 +81,7 @@ COPY files/entrypoint-artifactory.sh /
 # - Fix Windows linebreaks (entrypoint may contain them...)
 # - Remove 'gosu' instruction as OpenShift forces unprivileged anyway
 RUN \
-  sed -i 's/^\(setupPermissions\)$/#\1/m' /entrypoint-artifactory.sh && \
+  sed -i 's/^\(setupPermissions\|setupArtUser\)$/#\1/m' /entrypoint-artifactory.sh && \
   sed -i 's/chown/#chown/' /entrypoint-artifactory.sh && \
   sed -i 's/\r//' /entrypoint-artifactory.sh && \
   sed -i 's/gosu \${ARTIFACTORY_USER_NAME}//' /entrypoint-artifactory.sh
@@ -90,9 +91,9 @@ RUN sed -i 's/port="8081"/port="8080"/' ${ARTIFACTORY_HOME}/tomcat/conf/server.x
 
 # Drop privileges
 RUN \
-  chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} ${ARTIFACTORY_HOME} && \
+  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_HOME} && \
   chmod -R 777 ${ARTIFACTORY_HOME} && \
-  chown -R ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} ${ARTIFACTORY_DATA} && \
+  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_DATA} && \
   chmod -R 777 ${ARTIFACTORY_DATA} && \
   chmod a+x /entrypoint-artifactory.sh
 
