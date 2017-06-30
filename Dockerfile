@@ -19,7 +19,7 @@ ENV \
   DB_PASSWORD=password \
   ARTIFACTORY_USER_ID=1030 \
   ARTIFACTORY_USER_NAME=artifactory \
-  PS1=${debian_chroot:+($debian_chroot)}\\h:\\w\\$
+  PS1="${debian_chroot:+($debian_chroot)}\\h:\\w\\$ "
 
 # Disable Tomcat's manager application.
 RUN rm -rf /usr/local/tomcat/webapps/*
