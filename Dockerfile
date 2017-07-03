@@ -2,8 +2,6 @@
 #
 # VERSION 		5.4.1epos
 
-#official image name: eposcat/artifactory
-
 FROM openjdk:8-jdk
 
 # loosely based on existing repository https://github.com/fkirill/dockerfile-artifactory
@@ -13,12 +11,6 @@ ENV \
   ARTIFACTORY_HOME=/var/opt/artifactory \ 
   ARTIFACTORY_DATA=/data/artifactory \ 
   ARTIFACTORY_USER_ID=1030
-
-
-# Expose tomcat runtime options through the RUNTIME_OPTS environment variable.
-#   Example to set the JVM's max heap size to 256MB use the flag
-#   '-e RUNTIME_OPTS="-Xmx256m"' when starting a container.
-#RUN echo 'export CATALINA_OPTS="$RUNTIME_OPTS"' > bin/setenv.sh
 
 # Create Artifactory home directory structure:
 #  - access:  Subfolder for Access WAR
@@ -47,6 +39,7 @@ RUN \
 # - Remove Windows executables
 # - Remove temporary files
 # - Link folders (etc folder is copied over and linked back to preserve stock config)
+# - Fix a test in startup script to follow symlink
 # - Add option to inject custom JAVA_OPTIONS via environment variable EXTRA_JAVA_OPTIONS
 RUN \ 
   ARTIFACTORY_VERSION=5.4.2 \
@@ -66,6 +59,7 @@ RUN \
   ln -s ${ARTIFACTORY_DATA}/run ${ARTIFACTORY_HOME}/run && \
   mv ${ARTIFACTORY_HOME}/etc ${ARTIFACTORY_DATA} && \
   ln -s ${ARTIFACTORY_DATA}/etc ${ARTIFACTORY_HOME}/etc && \
+  sed -i 's/-n "\$ARTIFACTORY_PID"/-d $(dirname "$ARTIFACTORY_PID")/' $ARTIFACTORY_HOME/bin/artifactory.sh && \
   echo 'if [ ! -z "${EXTRA_JAVA_OPTIONS}" ]; then export JAVA_OPTIONS="$JAVA_OPTIONS $EXTRA_JAVA_OPTIONS"; fi' >> $ARTIFACTORY_HOME/bin/artifactory.default
 
 
@@ -113,4 +107,4 @@ WORKDIR /data/artifactory
 
 EXPOSE 8080
 
-ENTRYPOINT ["/var/opt/artifactory/bin/artifactoryctl", "run"]
+ENTRYPOINT ["/var/opt/artifactory/bin/artifactory.sh", "run"]
