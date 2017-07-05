@@ -168,10 +168,11 @@ setDBType () {
 checkLockFile () {
     local TIMEOUT=30
     local COUNTER=0
+    local LOCK_FILE=${ARTIFACTORY_DATA}/data/.lock
 	
-	if [ -e ${ARTIFACTORY_DATA}/.lock ]; then
+	if [ -e $LOCK_FILE ]; then
 		logger "Found .lock file from previous instance, trying delete"
-		while ! rm ${ARTIFACTORY_DATA}/.lock > /dev/null; do
+		while ! rm $LOCK_FILE > /dev/null; do
 			logger "."
 			sleep 1
 			let COUNTER=$COUNTER+1
