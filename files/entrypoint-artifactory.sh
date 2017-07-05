@@ -175,4 +175,4 @@ setDBType
 echo; echo "====================================="; echo
 
 # Run Artifactory as ARTIFACTORY_USER_NAME user
-exec gosu ${ARTIFACTORY_USER_NAME} ${ARTIFACTORY_HOME}/bin/artifactory.sh
+exec ${ARTIFACTORY_HOME}/bin/artifactory.sh
