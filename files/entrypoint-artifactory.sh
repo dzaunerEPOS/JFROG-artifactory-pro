@@ -81,31 +81,6 @@ setupDataDirs () {
     [ -d ${ARTIFACTORY_DATA}/access ] || mkdir -p ${ARTIFACTORY_DATA}/access || errorExit "Failed creating $ARTIFACTORY_DATA/access"
 }
 
-# Do the actual permission check and chown
-checkAndSetOwnerOnDir () {
-    local DIR_TO_CHECK=$1
-    local USER_TO_CHECK=$2
-    local GROUP_TO_CHECK=$3
-
-    logger "Checking permissions on $DIR_TO_CHECK"
-    local STAT=( $(stat -Lc "%U %G" ${DIR_TO_CHECK}) )
-    local USER=${STAT[0]}
-    local GROUP=${STAT[1]}
-
-    if [[ ${USER} != "$USER_TO_CHECK" ]] || [[ ${GROUP} != "$GROUP_TO_CHECK"  ]] ; then
-        logger "$DIR_TO_CHECK is owned by $USER:$GROUP. Setting to $USER_TO_CHECK:$GROUP_TO_CHECK."
-        chown -R ${USER_TO_CHECK}:${GROUP_TO_CHECK} ${DIR_TO_CHECK} || errorExit "Setting ownership on $DIR_TO_CHECK failed"
-    else
-        logger "$DIR_TO_CHECK is already owned by $USER_TO_CHECK:$GROUP_TO_CHECK."
-    fi
-}
-
-# Check and set permissions on ARTIFACTORY_DATA
-setupPermissions () {
-    # ARTIFACTORY_DATA
-    checkAndSetOwnerOnDir $ARTIFACTORY_DATA $ARTIFACTORY_USER_ID $ARTIFACTORY_USER_ID
-}
-
 # Wait for DB port to be accessible
 waitForDB () {
     local PROPS_FILE=$1
@@ -236,7 +211,6 @@ echo "====================================="
 checkULimits
 checkMounts
 setupDataDirs
-setupPermissions
 setDBType
 checkLockFile
 
