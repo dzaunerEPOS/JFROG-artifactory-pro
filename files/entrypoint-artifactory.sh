@@ -4,9 +4,6 @@
 #
 
 ART_ETC=$ARTIFACTORY_DATA/etc
-BOOTSTRAP_BUNDLE=${ART_ETC}/bootstrap.bundle.tar.gz
-
-: ${ARTIFACTORY_EXTRA_CONF:=/artifactory_extra_conf}
 
 : ${RECOMMENDED_MAX_OPEN_FILES:=32000}
 : ${MIN_MAX_OPEN_FILES:=10000}
@@ -58,6 +55,70 @@ checkULimits () {
     if [ "$CURRENT_MAX_OPEN_PROCESSES" != "unlimited" ] && [ "$CURRENT_MAX_OPEN_PROCESSES" -lt "$RECOMMENDED_MAX_OPEN_PROCESSES" ]; then
         warn "Max number of processes $CURRENT_MAX_OPEN_PROCESSES is too low!"
         warn "You should add the parameter '--ulimit noproc=${RECOMMENDED_MAX_OPEN_PROCESSES}:${RECOMMENDED_MAX_OPEN_PROCESSES}' to your the 'docker run' command."
+    fi
+}
+
+# Check that data dir is mounted and warn if not
+checkMounts () {
+    logger "Checking if $ARTIFACTORY_DATA is mounted"
+    mount | grep ${ARTIFACTORY_DATA} > /dev/null
+    if [ $? -ne 0 ]; then
+        warn "Artifactory data directory ($ARTIFACTORY_DATA) is not mounted from the host. This means that all data and configurations will be lost once container is removed!"
+    else
+        logger "$ARTIFACTORY_DATA is mounted"
+    fi
+}
+
+# In case data dirs are missing or not mounted, need to create them
+setupDataDirs () {
+    logger "Setting up data directories if missing"
+    if [ ! -d ${ARTIFACTORY_DATA}/etc ]; then
+        mkdir -p ${ARTIFACTORY_DATA}/etc errorExit "Failed creating $ARTIFACTORY_DATA/etc"
+
+        # Add extra conf files to a newly created etc/ only!
+        addExtraConfFiles
+    fi
+    [ -d ${ARTIFACTORY_DATA}/data ]   || mkdir -p ${ARTIFACTORY_DATA}/data   || errorExit "Failed creating $ARTIFACTORY_DATA/data"
+    [ -d ${ARTIFACTORY_DATA}/logs ]   || mkdir -p ${ARTIFACTORY_DATA}/logs   || errorExit "Failed creating $ARTIFACTORY_DATA/logs"
+    [ -d ${ARTIFACTORY_DATA}/backup ] || mkdir -p ${ARTIFACTORY_DATA}/backup || errorExit "Failed creating $ARTIFACTORY_DATA/backup"
+    [ -d ${ARTIFACTORY_DATA}/access ] || mkdir -p ${ARTIFACTORY_DATA}/access || errorExit "Failed creating $ARTIFACTORY_DATA/access"
+}
+
+# Do the actual permission check and chown
+checkAndSetOwnerOnDir () {
+    local DIR_TO_CHECK=$1
+    local USER_TO_CHECK=$2
+    local GROUP_TO_CHECK=$3
+
+    logger "Checking permissions on $DIR_TO_CHECK"
+    local STAT=( $(stat -Lc "%U %G" ${DIR_TO_CHECK}) )
+    local USER=${STAT[0]}
+    local GROUP=${STAT[1]}
+
+    if [[ ${USER} != "$USER_TO_CHECK" ]] || [[ ${GROUP} != "$GROUP_TO_CHECK"  ]] ; then
+        logger "$DIR_TO_CHECK is owned by $USER:$GROUP. Setting to $USER_TO_CHECK:$GROUP_TO_CHECK."
+        chown -R ${USER_TO_CHECK}:${GROUP_TO_CHECK} ${DIR_TO_CHECK} || errorExit "Setting ownership on $DIR_TO_CHECK failed"
+    else
+        logger "$DIR_TO_CHECK is already owned by $USER_TO_CHECK:$GROUP_TO_CHECK."
+    fi
+}
+
+# Check and set permissions on ARTIFACTORY_HOME and ARTIFACTORY_DATA
+setupPermissions () {
+    # ARTIFACTORY_HOME
+    checkAndSetOwnerOnDir $ARTIFACTORY_HOME $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
+
+    # ARTIFACTORY_DATA
+    checkAndSetOwnerOnDir $ARTIFACTORY_DATA $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
+
+    # HA_DATA_DIR (If running in HA mode)
+    if [ -d "$HA_DATA_DIR" ]; then
+        checkAndSetOwnerOnDir $HA_DATA_DIR $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
+    fi
+
+    # HA_BACKUP_DIR (If running in HA mode)
+    if [ -d "$HA_BACKUP_DIR" ]; then
+        checkAndSetOwnerOnDir $HA_BACKUP_DIR $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
     fi
 }
 
@@ -189,6 +250,9 @@ echo; echo "Preparing to run Artifactory in Docker"
 echo "====================================="
 
 checkULimits
+checkMounts
+setupDataDirs
+setupPermissions
 setDBType
 checkLockFile
 
