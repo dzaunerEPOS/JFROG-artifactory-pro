@@ -76,7 +76,7 @@ RUN \
 # - Insert connection information (DB_USER, DB_PASSWORD, DB_HOST)
 RUN \ 
   POSTGRESQL_JAR_VERSION=9.4.1212 \ 
-  POSTGRESQL_JAR=https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_JAR_VERSION}.jar \ 
+  POSTGRESQL_JAR=https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_JAR_VERSION}.jar && \ 
   curl -L -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
 
 # Change default port to 8080
