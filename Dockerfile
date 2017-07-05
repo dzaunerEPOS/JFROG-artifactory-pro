@@ -86,14 +86,17 @@ RUN sed -i 's/port="8081"/port="8080"/' ${ARTIFACTORY_HOME}/tomcat/conf/server.x
 # FIXME: needed?
 #RUN apt-get update && apt-get install -y net-tools
 
+COPY files/entrypoint-artifactory.sh /
+
 # Drop privileges
 RUN \ 
   chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_HOME} && \ 
   chmod -R 777 ${ARTIFACTORY_HOME} && \ 
   chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_DATA} && \ 
-  chmod -R 777 ${ARTIFACTORY_DATA}
+  chmod -R 777 ${ARTIFACTORY_DATA} && \
+  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} /entrypoint-artifactory.sh && \ 
+  chmod -R 777 /entrypoint-artifactory.sh 
 
-COPY files/entrypoint-artifactory.sh /
 
 USER $ARTIFACTORY_USER_ID
 
