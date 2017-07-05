@@ -15,22 +15,6 @@ ENV \
   DB_PORT=5432 \ 
   DB_USER=artifactory \ 
   DB_PASSWORD=password
-  
-
-# Create Artifactory home directory structure:
-#  - access:  Subfolder for Access WAR
-#  - etc:     Omitted as the stock etc will be moved over
-#  - backup:  Backup folder
-#  - data:    Data folder
-#  - logs:    Log files
-#  - run:     Stores the pid-file
-RUN \ 
-  mkdir -p ${ARTIFACTORY_DATA} && \
-  mkdir -p ${ARTIFACTORY_DATA}/access && \
-  mkdir -p ${ARTIFACTORY_DATA}/backup && \
-  mkdir -p ${ARTIFACTORY_DATA}/data && \
-  mkdir -p ${ARTIFACTORY_DATA}/logs && \
-  mkdir -p ${ARTIFACTORY_DATA}/run
 
 
 # Fetch and install Artifactory Pro
@@ -62,7 +46,6 @@ RUN \
   ln -s ${ARTIFACTORY_DATA}/data ${ARTIFACTORY_HOME}/data && \
   ln -s ${ARTIFACTORY_DATA}/logs ${ARTIFACTORY_HOME}/logs && \
   ln -s ${ARTIFACTORY_DATA}/run ${ARTIFACTORY_HOME}/run && \
-  mv ${ARTIFACTORY_HOME}/etc ${ARTIFACTORY_DATA} && \
   ln -s ${ARTIFACTORY_DATA}/etc ${ARTIFACTORY_HOME}/etc && \
   sed -i 's/-n "\$ARTIFACTORY_PID"/-d $(dirname "$ARTIFACTORY_PID")/' $ARTIFACTORY_HOME/bin/artifactory.sh && \
   echo 'if [ ! -z "${EXTRA_JAVA_OPTIONS}" ]; then export JAVA_OPTIONS="$JAVA_OPTIONS $EXTRA_JAVA_OPTIONS"; fi' >> $ARTIFACTORY_HOME/bin/artifactory.default
@@ -92,8 +75,6 @@ COPY files/entrypoint-artifactory.sh /
 RUN \ 
   chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_HOME} && \ 
   chmod -R 777 ${ARTIFACTORY_HOME} && \ 
-  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_DATA} && \ 
-  chmod -R 777 ${ARTIFACTORY_DATA} && \
   chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} /entrypoint-artifactory.sh && \ 
   chmod -R 777 /entrypoint-artifactory.sh 
 

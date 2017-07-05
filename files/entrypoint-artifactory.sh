@@ -73,10 +73,7 @@ checkMounts () {
 setupDataDirs () {
     logger "Setting up data directories if missing"
     if [ ! -d ${ARTIFACTORY_DATA}/etc ]; then
-        mkdir -p ${ARTIFACTORY_DATA}/etc errorExit "Failed creating $ARTIFACTORY_DATA/etc"
-
-        # Add extra conf files to a newly created etc/ only!
-        addExtraConfFiles
+        mv ${ARTIFACTORY_HOME}/etc ${ARTIFACTORY_DATA} || errorExit "Failed creating $ARTIFACTORY_DATA/data"
     fi
     [ -d ${ARTIFACTORY_DATA}/data ]   || mkdir -p ${ARTIFACTORY_DATA}/data   || errorExit "Failed creating $ARTIFACTORY_DATA/data"
     [ -d ${ARTIFACTORY_DATA}/logs ]   || mkdir -p ${ARTIFACTORY_DATA}/logs   || errorExit "Failed creating $ARTIFACTORY_DATA/logs"
@@ -103,23 +100,10 @@ checkAndSetOwnerOnDir () {
     fi
 }
 
-# Check and set permissions on ARTIFACTORY_HOME and ARTIFACTORY_DATA
+# Check and set permissions on ARTIFACTORY_DATA
 setupPermissions () {
-    # ARTIFACTORY_HOME
-    checkAndSetOwnerOnDir $ARTIFACTORY_HOME $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
-
     # ARTIFACTORY_DATA
-    checkAndSetOwnerOnDir $ARTIFACTORY_DATA $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
-
-    # HA_DATA_DIR (If running in HA mode)
-    if [ -d "$HA_DATA_DIR" ]; then
-        checkAndSetOwnerOnDir $HA_DATA_DIR $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
-    fi
-
-    # HA_BACKUP_DIR (If running in HA mode)
-    if [ -d "$HA_BACKUP_DIR" ]; then
-        checkAndSetOwnerOnDir $HA_BACKUP_DIR $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
-    fi
+    checkAndSetOwnerOnDir $ARTIFACTORY_DATA $ARTIFACTORY_USER_ID $ARTIFACTORY_USER_ID
 }
 
 # Wait for DB port to be accessible
