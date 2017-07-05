@@ -10,7 +10,12 @@ MAINTAINER Daniel Zauner <daniel.zauner@epos-cat.de>
 ENV \ 
   ARTIFACTORY_HOME=/var/opt/artifactory \ 
   ARTIFACTORY_DATA=/data/artifactory \ 
-  ARTIFACTORY_USER_ID=1030
+  ARTIFACTORY_USER_ID=1030 \
+  DB_HOST=postgresql \ 
+  DB_PORT=5432 \ 
+  DB_USER=artifactory \ 
+  DB_PASSWORD=password
+  
 
 # Create Artifactory home directory structure:
 #  - access:  Subfolder for Access WAR
@@ -70,16 +75,9 @@ RUN \
 # - Copy PostgreSQL properties
 # - Insert connection information (DB_USER, DB_PASSWORD, DB_HOST)
 RUN \ 
-  POSTGRESQL_JAR_VERSION=9.4.1212 \
-  POSTGRESQL_JAR=https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_JAR_VERSION}.jar \
-  DB_HOST=postgresql \ 
-  DB_USER=artifactory \ 
-  DB_PASSWORD=password && \
-  curl -L -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR} && \
-  cp ${ARTIFACTORY_HOME}/misc/db/postgresql.properties ${ARTIFACTORY_DATA}/etc/db.properties && \ 
-  sed -i "s/localhost/$DB_HOST/g" ${ARTIFACTORY_DATA}/etc/db.properties && \ 
-  sed -i "s/username=.*/username=$DB_USER/g" ${ARTIFACTORY_DATA}/etc/db.properties && \ 
-  sed -i "s/password=.*/password=$DB_PASSWORD/g" ${ARTIFACTORY_DATA}/etc/db.properties
+  POSTGRESQL_JAR_VERSION=9.4.1212 \ 
+  POSTGRESQL_JAR=https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_JAR_VERSION}.jar \ 
+  curl -L -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
 
 # Change default port to 8080
 RUN sed -i 's/port="8081"/port="8080"/' ${ARTIFACTORY_HOME}/tomcat/conf/server.xml
@@ -95,6 +93,8 @@ RUN \
   chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_DATA} && \ 
   chmod -R 777 ${ARTIFACTORY_DATA}
 
+COPY files/entrypoint-artifactory.sh /
+
 USER $ARTIFACTORY_USER_ID
 
 HEALTHCHECK --interval=5m --timeout=3s \
@@ -107,4 +107,4 @@ WORKDIR /data/artifactory
 
 EXPOSE 8080
 
-ENTRYPOINT ["/var/opt/artifactory/bin/artifactory.sh", "run"]
+ENTRYPOINT ["/entrypoint-artifactory.sh"]
