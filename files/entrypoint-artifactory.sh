@@ -164,6 +164,24 @@ setDBType () {
 	[ $? -eq 1 ] || errorExit "PostgreSQL failed to start in the given time"
 }
 
+# wait until .lock file is closed if it isn't
+checkLockFile () {
+    local TIMEOUT=30
+    local COUNTER=0
+	
+	if [ -e ${ARTIFACTORY_DATA}/.lock ]; then
+		logger "Found .lock file from previous instance, trying delete"
+		while ! rm ${ARTIFACTORY_DATA}/.lock > /dev/null; do
+			logger "."
+			sleep 1
+			let COUNTER=$COUNTER+1
+			if [ $COUNTER -gt $TIMEOUT ]; then
+				errorExit "Couldn't delete .lock file"
+			fi
+		done
+	fi
+}
+
 ######### Main #########
 
 echo; echo "Preparing to run Artifactory in Docker"
@@ -171,6 +189,7 @@ echo "====================================="
 
 checkULimits
 setDBType
+checkLockFile
 
 echo; echo "====================================="; echo
 
