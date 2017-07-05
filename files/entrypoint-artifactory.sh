@@ -3,11 +3,6 @@
 # An entrypoint script for Artifactory to allow custom setup before server starts
 #
 
-: ${ART_PRIMARY_BASE_URL:=http://artifactory-node1:8081/artifactory}
-: ${ARTIFACTORY_USER_NAME:=artifactory}
-: ${ARTIFACTORY_USER_ID:=1030}
-: ${ARTIFACTORY_HOME:=/opt/jfrog/artifactory}
-: ${ARTIFACTORY_DATA:=/var/opt/jfrog/artifactory}
 ART_ETC=$ARTIFACTORY_DATA/etc
 BOOTSTRAP_BUNDLE=${ART_ETC}/bootstrap.bundle.tar.gz
 
@@ -66,160 +61,6 @@ checkULimits () {
     fi
 }
 
-# Check that data dir is mounted and warn if not
-checkMounts () {
-    logger "Checking if $ARTIFACTORY_DATA is mounted"
-    mount | grep ${ARTIFACTORY_DATA} > /dev/null
-    if [ $? -ne 0 ]; then
-        warn "Artifactory data directory ($ARTIFACTORY_DATA) is not mounted from the host. This means that all data and configurations will be lost once container is removed!"
-    else
-        logger "$ARTIFACTORY_DATA is mounted"
-    fi
-}
-
-# Add additional conf files that were mounted to ARTIFACTORY_EXTRA_CONF
-addExtraConfFiles () {
-    logger "Adding extra configuration files to ${ARTIFACTORY_HOME}/etc if any exist"
-
-    # If directory not empty
-    if [ -d "${ARTIFACTORY_EXTRA_CONF}" ] && [ "$(ls -A ${ARTIFACTORY_EXTRA_CONF})" ]; then
-        logger "Adding files from ${ARTIFACTORY_EXTRA_CONF} to ${ARTIFACTORY_HOME}/etc"
-        cp -rfv ${ARTIFACTORY_EXTRA_CONF}/* ${ARTIFACTORY_HOME}/etc || errorExit "Copy files from ${ARTIFACTORY_EXTRA_CONF} to ${ARTIFACTORY_HOME}/etc failed"
-    fi
-}
-
-# In case data dirs are missing or not mounted, need to create them
-setupDataDirs () {
-    logger "Setting up data directories if missing"
-    if [ ! -d ${ARTIFACTORY_DATA}/etc ]; then
-        mkdir -p ${ARTIFACTORY_DATA}/etc errorExit "Failed creating $ARTIFACTORY_DATA/etc"
-
-        # Add extra conf files to a newly created etc/ only!
-        addExtraConfFiles
-    fi
-    [ -d ${ARTIFACTORY_DATA}/data ]   || mkdir -p ${ARTIFACTORY_DATA}/data   || errorExit "Failed creating $ARTIFACTORY_DATA/data"
-    [ -d ${ARTIFACTORY_DATA}/logs ]   || mkdir -p ${ARTIFACTORY_DATA}/logs   || errorExit "Failed creating $ARTIFACTORY_DATA/logs"
-    [ -d ${ARTIFACTORY_DATA}/backup ] || mkdir -p ${ARTIFACTORY_DATA}/backup || errorExit "Failed creating $ARTIFACTORY_DATA/backup"
-    [ -d ${ARTIFACTORY_DATA}/access ] || mkdir -p ${ARTIFACTORY_DATA}/access || errorExit "Failed creating $ARTIFACTORY_DATA/access"
-}
-
-# Generate an artifactory.config.import.yml if parameters passed
-# Only if artifactory.config.import.yml does not already exist!
-prepareArtConfigYaml () {
-    local artifactory_config_import_yml=${ARTIFACTORY_DATA}/etc/artifactory.config.import.yml
-    if [ ! -f ${artifactory_config_import_yml} ]; then
-        if [ -n "$AUTO_GEN_REPOS" ] || [ -n "$ART_BASE_URL" ] || [ -n "$ART_LICENSE" ]; then
-
-            # Make sure license is provided (must be passed in Pro)
-            if [ -z "$ART_LICENSE" ]; then
-                errorExit "To use the feature of auto configuration, you must pass a valid Artifactory license as an ART_LICENSE environment variable!"
-            fi
-
-            logger "Generating ${artifactory_config_import_yml}"
-            [ -n "$ART_LICENSE" ] && LIC_STR="licenseKey: $ART_LICENSE"
-            [ -n "$ART_BASE_URL" ] && BASE_URL_STR="baseUrl: $ART_BASE_URL"
-            [ -n "$AUTO_GEN_REPOS" ] && GEN_REPOS_STR="repoTypes:"
-
-            cat <<EY1 > "$artifactory_config_import_yml"
-version: 1
-GeneralConfiguration:
-  ${LIC_STR}
-  ${BASE_URL_STR}
-EY1
-
-            if [ -n "$GEN_REPOS_STR" ]; then
-                cat <<EY2 >> "$artifactory_config_import_yml"
-OnboardingConfiguration:
-  ${GEN_REPOS_STR}
-EY2
-                for repo in $(echo ${AUTO_GEN_REPOS} | tr ',' ' '); do
-                    cat <<EY3 >> "$artifactory_config_import_yml"
-   - ${repo}
-EY3
-                done
-            fi
-        fi
-    fi
-}
-
-# Create the Artifactory user (support passing name and id as parameters)
-setupArtUser () {
-    logger "Create $ARTIFACTORY_USER_NAME user if missing"
-    id -u ${ARTIFACTORY_USER_NAME} > /dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        logger "User does not exist. Creating it..."
-        useradd -M -s /usr/sbin/nologin --uid ${ARTIFACTORY_USER_ID} --user-group ${ARTIFACTORY_USER_NAME} || errorExit "Creating user $ARTIFACTORY_USER_NAME failed"
-    else
-        logger "User $ARTIFACTORY_USER_NAME already exists"
-    fi
-}
-
-# Do the actual permission check and chown
-checkAndSetOwnerOnDir () {
-    local DIR_TO_CHECK=$1
-    local USER_TO_CHECK=$2
-    local GROUP_TO_CHECK=$3
-
-    logger "Checking permissions on $DIR_TO_CHECK"
-    local STAT=( $(stat -Lc "%U %G" ${DIR_TO_CHECK}) )
-    local USER=${STAT[0]}
-    local GROUP=${STAT[1]}
-
-    if [[ ${USER} != "$USER_TO_CHECK" ]] || [[ ${GROUP} != "$GROUP_TO_CHECK"  ]] ; then
-        logger "$DIR_TO_CHECK is owned by $USER:$GROUP. Setting to $USER_TO_CHECK:$GROUP_TO_CHECK."
-        chown -R ${USER_TO_CHECK}:${GROUP_TO_CHECK} ${DIR_TO_CHECK} || errorExit "Setting ownership on $DIR_TO_CHECK failed"
-    else
-        logger "$DIR_TO_CHECK is already owned by $USER_TO_CHECK:$GROUP_TO_CHECK."
-    fi
-}
-
-# Check and set permissions on ARTIFACTORY_HOME and ARTIFACTORY_DATA
-setupPermissions () {
-    # ARTIFACTORY_HOME
-    checkAndSetOwnerOnDir $ARTIFACTORY_HOME $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
-
-    # ARTIFACTORY_DATA
-    checkAndSetOwnerOnDir $ARTIFACTORY_DATA $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
-
-    # HA_DATA_DIR (If running in HA mode)
-    if [ -d "$HA_DATA_DIR" ]; then
-        checkAndSetOwnerOnDir $HA_DATA_DIR $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
-    fi
-
-    # HA_BACKUP_DIR (If running in HA mode)
-    if [ -d "$HA_BACKUP_DIR" ]; then
-        checkAndSetOwnerOnDir $HA_BACKUP_DIR $ARTIFACTORY_USER_NAME $ARTIFACTORY_USER_NAME
-    fi
-}
-
-# Wait for primary node if needed
-waitForPrimaryNode () {
-    logger "Waiting for primary node to be up"
-
-    local CMD="curl --silent --fail $ART_PRIMARY_BASE_URL/api/system/ping"
-    logger "Running $CMD"
-    while [ "$($CMD)" != "OK" ]; do
-        logger "."
-        sleep 4
-    done
-
-    logger "Primary node ($ART_PRIMARY_BASE_URL) is up!"
-}
-
-# Wait for existence of etc/bootstrap.bundle.tar.gz
-waitForBootstrapBundle () {
-    logger "Waiting for $BOOTSTRAP_BUNDLE"
-
-    while [ ! -f ${BOOTSTRAP_BUNDLE} ]; do
-        logger "."
-        sleep 4
-    done
-    logger "$BOOTSTRAP_BUNDLE exists! Setting ${ARTIFACTORY_USER_NAME} as owner"
-
-    # Make sure file is owned by artifactory
-    chown ${ARTIFACTORY_USER_NAME}:${ARTIFACTORY_USER_NAME} ${BOOTSTRAP_BUNDLE} || errorExit "Setting owner of ${BOOTSTRAP_BUNDLE} to ${ARTIFACTORY_USER_NAME} failed"
-}
-
 # Wait for DB port to be accessible
 waitForDB () {
     local PROPS_FILE=$1
@@ -262,108 +103,6 @@ waitForDB () {
     done
 
     return 0
-}
-
-# Set and configure DB type
-checkHA () {
-    # Check if HA (if one HA_XXX is set)
-    if [ -n "$HA_NODE_ID" ] || [ -n "$HA_IS_PRIMARY" ]; then
-        logger "Detected an Artifactory HA setup"
-        if [ -z "$HA_NODE_ID" ]; then
-            logger "HA_NODE_ID not set. Generating"
-            HA_NODE_ID="node-$(hostname)"
-            logger "HA_NODE_ID set to $HA_NODE_ID"
-        fi
-        if [ -z "$HA_IS_PRIMARY" ]; then
-            errorExit "To setup Artifactory HA, you must set the HA_IS_PRIMARY environment variable"
-        fi
-        if [ -z "$HA_DATA_DIR" ]; then
-            warn "HA_DATA_DIR is not set, Artifactory will use local data folder"
-            HA_DATA_DIR="$ARTIFACTORY_DATA/data"
-        fi
-        if [ -z "$HA_BACKUP_DIR" ]; then
-            warn "HA_BACKUP_DIR is not set, Artifactory will use local backup folder"
-            HA_BACKUP_DIR="$ARTIFACTORY_DATA/backup"
-        fi
-        if [ -z "$HA_MEMBERSHIP_PORT" ]; then
-            HA_MEMBERSHIP_PORT=10002
-        fi
-
-        # Get the container's internal IP to be used for ha-node.properties
-        HA_HOST_IP=$(hostname -i)
-        logger "HA_HOST_IP is set to $HA_HOST_IP"
-
-        if [ -z "$HA_CONTEXT_URL" ]; then
-            warn "HA_CONTEXT_URL is missing, using HA_HOST_IP as context url"
-            HA_CONTEXT_URL=http://$HA_HOST_IP:8081/artifactory
-        fi
-
-        # If this is not the primary node, make sure the primary node's URL is passed and wait for it before proceeding
-        if [[ $HA_IS_PRIMARY =~ false ]]; then
-            logger "This is not the primary node. Must wait for primary node before starting"
-            waitForPrimaryNode
-        fi
-
-        # Wait for etc/bootstrap.bundle.tar.gz (only on non-primary nodes)
-        if [[ $HA_IS_PRIMARY =~ false ]] && [ "$HA_WAIT_FOR_BUNDLE" == "true" ]; then
-            logger "HA_WAIT_FOR_BUNDLE set. Waiting for ${BOOTSTRAP_BUNDLE} existence"
-            waitForBootstrapBundle
-        fi
-
-        # (If no etc/bootstrap.bundle.tar.gz)
-        # Setup the security communication key
-        # Due to a limitation with setting permissions on mounted volumes in Mac OS
-        # Putting it in a local directory and linking to it
-        if [ ! -f ${BOOTSTRAP_BUNDLE} ]; then
-            if [ ! -d  "$ART_ETC/security" ]; then
-                logger "$ART_ETC/security does not exist. Creating it"
-                mkdir -p "$ART_ETC/security" || errorExit "Creating $ART_ETC/security directory failed"
-
-                # If a key file exists in $ARTIFACTORY_DATA/communication.key, use it (good for demos)
-                if [ -f $ARTIFACTORY_DATA/communication.key ]; then
-                    logger "Found $ARTIFACTORY_DATA/communication.key. Using it..."
-                    cp -v $ARTIFACTORY_DATA/communication.key $ART_ETC/security/ || errorExit "Copying $ARTIFACTORY_DATA/communication.key to $ART_ETC/security failed"
-                    chmod 600 "$ART_ETC/security/communication.key" || errorExit "Changing mode for $ART_ETC/security/communication.key file failed"
-                fi
-
-                chown -R ${ARTIFACTORY_USER_NAME}: "$ART_ETC/security" || errorExit "Change owner of $ART_ETC/security to ${ARTIFACTORY_USER_NAME} failed"
-            fi
-        else
-            logger "$BOOTSTRAP_BUNDLE exists. Skipping communication.key setup"
-        fi
-
-        # Install license file if exists in /tmp
-        if ls /tmp/art*.lic 1> /dev/null 2>&1; then
-            logger "Found /tmp/art*.lic. Using it..."
-            cp -v /tmp/art*.lic $ART_ETC/artifactory.lic
-            chown -R ${ARTIFACTORY_USER_NAME}: $ART_ETC/artifactory.lic || errorExit "Change owner of $ART_ETC/artifactory.lic to ${ARTIFACTORY_USER_NAME} failed"
-        fi
-
-        # Start preparing the HA setup if not already exists
-        if [ ! -f "$ART_ETC/ha-node.properties" ]; then
-            logger "Preparing $ART_ETC/ha-node.properties"
-            cat <<EOF > "$ART_ETC/ha-node.properties"
-node.id=$HA_NODE_ID
-context.url=$HA_CONTEXT_URL
-membership.port=$HA_MEMBERSHIP_PORT
-primary=$HA_IS_PRIMARY
-hazelcast.interface=$HA_HOST_IP
-EOF
-            if [ -n "$HA_DATA_DIR" ] && [ -n "$HA_BACKUP_DIR" ] ; then
-                echo "artifactory.ha.data.dir=$HA_DATA_DIR" >> "$ART_ETC/ha-node.properties"
-                echo "artifactory.ha.backup.dir=$HA_BACKUP_DIR" >> "$ART_ETC/ha-node.properties"
-            fi
-
-            chown ${ARTIFACTORY_USER_NAME}: $ART_ETC/ha-node.properties || errorExit "Change owner of $ART_ETC/ha-node.properties to ${ARTIFACTORY_USER_NAME} failed"
-        else
-            # Update existing for the case the IP changed
-            logger "$ART_ETC/ha-node.properties already exists. Making sure properties with IP are updated correctly"
-            sed -i "s,^context.url=.*,context.url=$HA_CONTEXT_URL,g" $ART_ETC/ha-node.properties || errorExit "Updating $ART_ETC/ha-node.properties with context.url failed"
-            sed -i "s,^hazelcast.interface=.*,hazelcast.interface=$HA_HOST_IP,g" $ART_ETC/ha-node.properties || errorExit "Updating $ART_ETC/ha-node.properties with hazelcast.interface failed"
-        fi
-        logger "Content of $ART_ETC/ha-node.properties:"
-        cat $ART_ETC/ha-node.properties; echo
-    fi
 }
 
 # Check DB type configurations before starting Artifactory
@@ -501,36 +240,13 @@ setDBType () {
     fi
 }
 
-addExtraJavaArgs () {
-    logger "Adding EXTRA_JAVA_OPTIONS if exist"
-    if [ ! -z "$EXTRA_JAVA_OPTIONS" ] && [ ! -f ${ARTIFACTORY_HOME}/bin/artifactory.default.origin ]; then
-        logger "Adding EXTRA_JAVA_OPTIONS $EXTRA_JAVA_OPTIONS"
-        cp -v ${ARTIFACTORY_HOME}/bin/artifactory.default ${ARTIFACTORY_HOME}/bin/artifactory.default.origin
-        echo "export JAVA_OPTIONS=\"\$JAVA_OPTIONS $EXTRA_JAVA_OPTIONS\"" >> ${ARTIFACTORY_HOME}/bin/artifactory.default
-    fi
-}
-
-addPlugins () {
-    logger "Adding plugins if exist"
-    mkdir -p ${ARTIFACTORY_HOME}/etc/plugins || errorExit "Failed creating ${ARTIFACTORY_HOME}/etc/plugins"
-    mv -fv /tmp/plugins/* ${ARTIFACTORY_HOME}/etc/plugins/
-}
-
 ######### Main #########
 
 echo; echo "Preparing to run Artifactory in Docker"
 echo "====================================="
 
 checkULimits
-checkMounts
-setupDataDirs
-prepareArtConfigYaml
-setupArtUser
-addPlugins
-setupPermissions
-checkHA
 setDBType
-addExtraJavaArgs
 
 echo; echo "====================================="; echo
 
