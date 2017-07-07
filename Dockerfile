@@ -27,7 +27,8 @@ ENV \
    mkdir -p ${ARTIFACTORY_DATA}/access && \
    mkdir -p ${ARTIFACTORY_DATA}/backup && \
    mkdir -p ${ARTIFACTORY_DATA}/data && \
-   mkdir -p ${ARTIFACTORY_DATA}/logs
+   mkdir -p ${ARTIFACTORY_DATA}/logs && \
+   mkdir -p ${ARTIFACTORY_DATA}/run
 
 # Fetch and install Artifactory Pro
 # =================================

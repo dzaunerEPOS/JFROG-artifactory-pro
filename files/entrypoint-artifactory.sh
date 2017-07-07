@@ -160,6 +160,29 @@ checkLockFile () {
 	fi
 }
 
+start() {
+  createLogsLink
+  . $ARTIFACTORY_HOME/bin/artifactory.default || errorArtHome "ERROR: Defaults file does not exist or not executable"
+  export CATALINA_OPTS="$JAVA_OPTIONS -Dartifactory.home=$ARTIFACTORY_HOME -Dfile.encoding=UTF8 -Djruby.compile.invokedynamic=false -Djfrog.access.bundled=true"
+  export CATALINA_PID="$ARTIFACTORY_PID"
+  [ -x $TOMCAT_HOME/bin/catalina.sh ] || chmod +x $TOMCAT_HOME/bin/*.sh
+  if [ -z "$@" ];
+  then
+    #default to catalina.sh run
+    exec $TOMCAT_HOME/bin/catalina.sh run
+  else
+    exec $TOMCAT_HOME/bin/catalina.sh "$@"
+  fi
+}
+createLogsLink() {
+    mkdir -p $ARTIFACTORY_HOME/logs/catalina || errorArtHome "Could not create dir $ARTIFACTORY_HOME/logs/catalina"
+    if [ ! -L "$TOMCAT_HOME/logs" ];
+    then
+        ln -s $ARTIFACTORY_HOME/logs/catalina $TOMCAT_HOME/logs || \
+            errorArtHome "Could not create link from $TOMCAT_HOME/logs to $ARTIFACTORY_HOME/logs/catalina"
+    fi
+}
+
 ######### Main #########
 
 echo; echo "Preparing to run Artifactory in Docker"
@@ -171,7 +194,9 @@ setupDataDirs
 setDBType
 checkLockFile
 
+
 echo; echo "====================================="; echo
 
+start "$@"
 # Run Artifactory as ARTIFACTORY_USER_NAME user
-exec ${ARTIFACTORY_HOME}/bin/artifactory.sh
+#exec ${ARTIFACTORY_HOME}/bin/artifactory.sh start
