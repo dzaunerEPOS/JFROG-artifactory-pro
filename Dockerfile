@@ -14,8 +14,20 @@ ENV \
   DB_HOST=postgresql \
   DB_PORT=5432 \
   DB_USER=artifactory \
-  DB_PASSWORD=password
+  DB_PASSWORD=password \
+  DB_NAME=artifactory
 
+  # Create Artifactory home directory structure:
+  #  - access:  Subfolder for Access WAR
+  #  - etc:     Omitted as the stock etc will be moved over
+  #  - backup:  Backup folder
+  #  - data:    Data folder
+  #  - logs:    Log files
+  RUN mkdir -p ${ARTIFACTORY_DATA} && \
+   mkdir -p ${ARTIFACTORY_DATA}/access && \
+   mkdir -p ${ARTIFACTORY_DATA}/backup && \
+   mkdir -p ${ARTIFACTORY_DATA}/data && \
+   mkdir -p ${ARTIFACTORY_DATA}/logs
 
 # Fetch and install Artifactory Pro
 # =================================
@@ -31,8 +43,8 @@ ENV \
 # - Fix a test in startup script to follow symlink
 # - Add option to inject custom JAVA_OPTIONS via environment variable EXTRA_JAVA_OPTIONS
 RUN \
-  ARTIFACTORY_VERSION=5.4.2 \
-  ARTIFACTORY_SHA256=1b4de1058d99a1c861765a9cc5cf7541106cf953b61a30aca5e5b0c42201d14b \
+  ARTIFACTORY_VERSION=5.4.4 \
+  ARTIFACTORY_SHA256=f2f258afcd5692f4a3618ba6dc6808f2c997d5e764cc2679b14f53e2e7b38f91 \
   ARTIFACTORY_URL=https://bintray.com/jfrog/artifactory-pro/download_file?file_path=org/artifactory/pro/jfrog-artifactory-pro/${ARTIFACTORY_VERSION}/jfrog-artifactory-pro-${ARTIFACTORY_VERSION}.zip \
   ARTIFACTORY_TEMP=$(mktemp -t "$(basename $0).XXXXXXXXXX.zip") && \
   curl -L -o ${ARTIFACTORY_TEMP} ${ARTIFACTORY_URL} && \
@@ -76,6 +88,8 @@ COPY files/entrypoint-artifactory.sh /
 RUN \
   chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_HOME} && \
   chmod -R 777 ${ARTIFACTORY_HOME} && \
+  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_DATA} && \
+  chmod -R 777 ${ARTIFACTORY_DATA} && \
   chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} /entrypoint-artifactory.sh && \
   chmod -R 777 /entrypoint-artifactory.sh
 

@@ -93,7 +93,7 @@ waitForDB () {
 
     # Extract DB host and port
     DB_HOST_PORT=$(grep -e '^url=' "$PROPS_FILE" | sed -e 's,^.*:\/\/\(.*\)\/.*,\1,g' | tr ':' '/')
-    
+
     logger "Waiting for PostgreSQL to be ready on $DB_HOST_PORT within $TIMEOUT seconds"
 
     while [ $COUNTER -lt $TIMEOUT ]; do
@@ -113,57 +113,14 @@ waitForDB () {
 
 # Check DB type configurations before starting Artifactory
 setDBConf () {
-	logger "Checking if need to copy PostgreSQL configuration"
-	# If already exists, just make sure it's configured for postgres
-	if [ -f ${DB_PROPS} ]; then
-		logger "${DB_PROPS} already exists. Making sure it's set to PostgreSQL... "
-		grep type=postgresql ${DB_PROPS} > /dev/null
-		if [ $? -eq 0 ]; then
-			logger "${DB_PROPS} is set to PostgreSQL"
-		else
-			errorExit "${DB_PROPS} already exists and is set to a DB different than PostgreSQL"
-		fi
-	else
-		NEED_COPY=true
-	fi
-
-	# On a new install and startup, need to make the initial copy before Artifactory starts
-	if [ "$NEED_COPY" == "true" ]; then
-		logger "Copying PostgreSQL configuration... "
-		cp ${ARTIFACTORY_HOME}/misc/db/postgresql.properties ${DB_PROPS} || errorExit "Copying $ARTIFACTORY_HOME/misc/db/postgresql.properties to ${DB_PROPS} failed"
-		chown ${ARTIFACTORY_USER_NAME}: ${DB_PROPS} || errorExit "Change owner of ${DB_PROPS} to ${ARTIFACTORY_USER_NAME} failed"
-
-		sed -i "s/localhost/$DB_HOST/g" ${DB_PROPS}
-
-		# Set custom DB parameters if specified
-		if [ ! -z "$DB_USER" ]; then
-			logger "Setting DB_USER to $DB_USER"
-			sed -i "s/username=.*/username=$DB_USER/g" ${DB_PROPS}
-		fi
-		if [ ! -z "$DB_PASSWORD" ]; then
-			logger "Setting DB_PASSWORD to **********"
-			sed -i "s/password=.*/password=$DB_PASSWORD/g" ${DB_PROPS}
-		fi
-
-		# Set the URL depending on what parameters are passed
-		if [ ! -z "$DB_URL" ]; then
-			logger "Setting DB_URL to $DB_URL (ignoring DB_HOST and DB_PORT if set)"
-			# Escape any & signs (so sed will not get messed up)
-			DB_URL=$(echo -n ${DB_URL} | sed "s|&|\\\\&|g")
-			sed -i "s|url=.*|url=$DB_URL|g" ${DB_PROPS}
-		else
-			if [ ! -z "$DB_PORT" ]; then
-				logger "Setting DB_PORT to $DB_PORT"
-				oldPort=$(grep -E "(url).*" ${DB_PROPS}  | awk -F":" '{print $4}' | awk -F"/" '{print $1}')
-				sed -i "s/$oldPort/$DB_PORT/g" ${DB_PROPS}
-			fi
-			if [ ! -z "$DB_HOST" ]; then
-				logger "Setting DB_HOST to $DB_HOST"
-				oldHost=$(grep -E "(url).*" ${DB_PROPS} | awk -F"//" '{print $2}' | awk -F":" '{print $1}')
-				sed -i "s/$oldHost/$DB_HOST/g" ${DB_PROPS}
-			fi
-		fi
-	fi
+	logger "Generating ${DB_PROPS}"
+  cat <<EOF > ${DB_PROPS}
+type=postgresql
+driver=org.postgresql.Driver
+url=jdbc:postgresql://$DB_HOST:$DB_PORT/$DB_NAME
+username=$DB_USER
+password=$DB_PASSWORD
+EOF
 }
 
 # Set and configure DB type
@@ -175,7 +132,7 @@ setDBType () {
 		errorExit "No postgresql connector found"
 	fi
 	setDBConf
-	
+
 
 	# Wait for DB
 	# On slow systems, when working with docker-compose, the DB container might be up,
@@ -189,7 +146,7 @@ checkLockFile () {
     local TIMEOUT=30
     local COUNTER=0
     local LOCK_FILE=${ARTIFACTORY_DATA}/data/.lock
-	
+
 	if [ -e $LOCK_FILE ]; then
 		logger "Found .lock file from previous instance, trying delete"
 		while ! rm $LOCK_FILE > /dev/null; do

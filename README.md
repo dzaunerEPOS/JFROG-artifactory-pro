@@ -5,6 +5,7 @@
 available environment variables:
  - `DB_HOST` (default value: `postgresql`)
  - `DB_PORT` (default value: `5432`)
+ - `DB_NAME` (default value: `artifactory`)
  - `DB_USER` (default value: `artifactory`)
  - `DB_PASSWORD` (default value: `password`)
  - `ARTIFACTORY_HOME` (default: `/var/opt/artifactory`)
