@@ -7,13 +7,13 @@ FROM openjdk:8-jdk
 # loosely based on existing repository https://github.com/fkirill/dockerfile-artifactory
 MAINTAINER Daniel Zauner <daniel.zauner@epos-cat.de>
 
-ENV \ 
-  ARTIFACTORY_HOME=/var/opt/artifactory \ 
-  ARTIFACTORY_DATA=/data/artifactory \ 
+ENV \
+  ARTIFACTORY_HOME=/var/opt/artifactory \
+  ARTIFACTORY_DATA=/data/artifactory \
   ARTIFACTORY_USER_ID=1030 \
-  DB_HOST=postgresql \ 
-  DB_PORT=5432 \ 
-  DB_USER=artifactory \ 
+  DB_HOST=postgresql \
+  DB_PORT=5432 \
+  DB_USER=artifactory \
   DB_PASSWORD=password
 
 
@@ -21,7 +21,7 @@ ENV \
 # =================================
 # For the latest version and checksum, check https://bintray.com/jfrog/artifactory-pro/jfrog-artifactory-pro-zip/_latestVersion
 #
-# - Define version and SHA256 checksum 
+# - Define version and SHA256 checksum
 # - Fetch the zipfile from bintray
 # - Validate the archvie
 # - Extract and move to the correct folder
@@ -30,7 +30,7 @@ ENV \
 # - Link folders (etc folder is copied over and linked back to preserve stock config)
 # - Fix a test in startup script to follow symlink
 # - Add option to inject custom JAVA_OPTIONS via environment variable EXTRA_JAVA_OPTIONS
-RUN \ 
+RUN \
   ARTIFACTORY_VERSION=5.4.2 \
   ARTIFACTORY_SHA256=1b4de1058d99a1c861765a9cc5cf7541106cf953b61a30aca5e5b0c42201d14b \
   ARTIFACTORY_URL=https://bintray.com/jfrog/artifactory-pro/download_file?file_path=org/artifactory/pro/jfrog-artifactory-pro/${ARTIFACTORY_VERSION}/jfrog-artifactory-pro-${ARTIFACTORY_VERSION}.zip \
@@ -46,6 +46,7 @@ RUN \
   ln -s ${ARTIFACTORY_DATA}/data ${ARTIFACTORY_HOME}/data && \
   ln -s ${ARTIFACTORY_DATA}/logs ${ARTIFACTORY_HOME}/logs && \
   ln -s ${ARTIFACTORY_DATA}/run ${ARTIFACTORY_HOME}/run && \
+  mv ${ARTIFACTORY_HOME}/etc ${ARTIFACTORY_DATA} && \
   ln -s ${ARTIFACTORY_DATA}/etc ${ARTIFACTORY_HOME}/etc && \
   sed -i 's/-n "\$ARTIFACTORY_PID"/-d $(dirname "$ARTIFACTORY_PID")/' $ARTIFACTORY_HOME/bin/artifactory.sh && \
   echo 'if [ ! -z "${EXTRA_JAVA_OPTIONS}" ]; then export JAVA_OPTIONS="$JAVA_OPTIONS $EXTRA_JAVA_OPTIONS"; fi' >> $ARTIFACTORY_HOME/bin/artifactory.default
@@ -57,9 +58,9 @@ RUN \
 # - Grab PostgreSQL driver
 # - Copy PostgreSQL properties
 # - Insert connection information (DB_USER, DB_PASSWORD, DB_HOST)
-RUN \ 
-  POSTGRESQL_JAR_VERSION=9.4.1212 \ 
-  POSTGRESQL_JAR=https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_JAR_VERSION}.jar && \ 
+RUN \
+  POSTGRESQL_JAR_VERSION=9.4.1212 \
+  POSTGRESQL_JAR=https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_JAR_VERSION}.jar && \
   curl -L -o $ARTIFACTORY_HOME/tomcat/lib/postgresql-${POSTGRESQL_JAR_VERSION}.jar ${POSTGRESQL_JAR}
 
 # Change default port to 8080
@@ -72,11 +73,11 @@ RUN sed -i 's/port="8081"/port="8080"/' ${ARTIFACTORY_HOME}/tomcat/conf/server.x
 COPY files/entrypoint-artifactory.sh /
 
 # Drop privileges
-RUN \ 
-  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_HOME} && \ 
-  chmod -R 777 ${ARTIFACTORY_HOME} && \ 
-  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} /entrypoint-artifactory.sh && \ 
-  chmod -R 777 /entrypoint-artifactory.sh 
+RUN \
+  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_HOME} && \
+  chmod -R 777 ${ARTIFACTORY_HOME} && \
+  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} /entrypoint-artifactory.sh && \
+  chmod -R 777 /entrypoint-artifactory.sh
 
 
 USER $ARTIFACTORY_USER_ID
