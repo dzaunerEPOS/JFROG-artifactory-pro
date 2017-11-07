@@ -47,7 +47,7 @@ RUN \
   ln -s ${ARTIFACTORY_DATA}/data ${ARTIFACTORY_HOME}/data && \
   ln -s ${ARTIFACTORY_DATA}/logs ${ARTIFACTORY_HOME}/logs && \
   ln -s ${ARTIFACTORY_DATA}/run ${ARTIFACTORY_HOME}/run && \
-  mv ${ARTIFACTORY_HOME}/etc ${ARTIFACTORY_HOME}/etc-clean
+  mv ${ARTIFACTORY_HOME}/etc ${ARTIFACTORY_HOME}/etc-clean && \
   ln -s ${ARTIFACTORY_DATA}/etc ${ARTIFACTORY_HOME}/etc && \
   sed -i 's/-n "\$ARTIFACTORY_PID"/-d $(dirname "$ARTIFACTORY_PID")/' $ARTIFACTORY_HOME/bin/artifactory.sh && \
   echo 'if [ ! -z "${EXTRA_JAVA_OPTIONS}" ]; then export JAVA_OPTIONS="$JAVA_OPTIONS $EXTRA_JAVA_OPTIONS"; fi' >> $ARTIFACTORY_HOME/bin/artifactory.default
