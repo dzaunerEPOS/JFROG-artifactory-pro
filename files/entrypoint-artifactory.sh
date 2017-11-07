@@ -73,7 +73,7 @@ checkMounts () {
 setupDataDirs () {
     logger "Setting up data directories if missing"
     if [ ! -d ${ARTIFACTORY_DATA}/etc ]; then
-        mv ${ARTIFACTORY_HOME}/etc ${ARTIFACTORY_DATA} || errorExit "Failed creating $ARTIFACTORY_DATA/data"
+        mv ${ARTIFACTORY_HOME}/etc-clean ${ARTIFACTORY_DATA}/etc || errorExit "Failed creating $ARTIFACTORY_DATA/data"
     fi
     [ -d ${ARTIFACTORY_DATA}/data ]   || mkdir -p ${ARTIFACTORY_DATA}/data   || errorExit "Failed creating $ARTIFACTORY_DATA/data"
     [ -d ${ARTIFACTORY_DATA}/logs ]   || mkdir -p ${ARTIFACTORY_DATA}/logs   || errorExit "Failed creating $ARTIFACTORY_DATA/logs"
