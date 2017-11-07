@@ -76,8 +76,6 @@ COPY files/entrypoint-artifactory.sh /
 RUN \
   chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_HOME} && \
   chmod -R 777 ${ARTIFACTORY_HOME} && \
-  chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} ${ARTIFACTORY_DATA} && \
-  chmod -R 777 ${ARTIFACTORY_DATA} && \
   chown -R ${ARTIFACTORY_USER_ID}:${ARTIFACTORY_USER_ID} /entrypoint-artifactory.sh && \
   chmod -R 777 /entrypoint-artifactory.sh
 
