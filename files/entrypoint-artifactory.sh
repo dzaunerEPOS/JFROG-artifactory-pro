@@ -160,6 +160,61 @@ checkLockFile () {
 	fi
 }
 
+setJvmHeapSize() {
+	BYTES_PER_MEG=$((1024*1024))
+	BYTES_PER_GIG=$((1024*${BYTES_PER_MEG}))
+
+	MIN_MEMORY_BYTES=$((1024*${BYTES_PER_MEG}))
+
+	logger "Setting Xmx and Xms memory based on provided HEAP_SIZE environment variable value: ${HEAP_SIZE}"
+	regex='^([[:digit:]]+)([GgMm])i?$'
+	if [[ "${HEAP_SIZE:-}" =~ $regex ]]; then
+		num=${BASH_REMATCH[1]}
+		unit=${BASH_REMATCH[2]}
+		if [[ $unit =~ [Gg] ]]; then
+			((num = num * ${BYTES_PER_GIG})) # enables math to work out for odd Gi
+		elif [[ $unit =~ [Mm] ]]; then
+			((num = num * ${BYTES_PER_MEG})) # enables math to work out for odd Mi
+		fi
+
+		logger "Inspecting the maximum RAM available..."
+
+		container_mem_file="/sys/fs/cgroup/memory/memory.limit_in_bytes"
+		node_mem_file="/proc/meminfo"
+		if [ -r "${container_mem_file}" ] && [ -r "${node_mem_file}" ]; then
+			container_mem=$(cat $container_mem_file)
+			node_mem=$(cat $node_mem_file | grep MemAvailable | awk '{print $2 * 1024}')
+			if [ ${container_mem} -lt ${node_mem} ]; then
+				avail_mem=${container_mem}
+			else
+				avail_mem=${node_mem}
+			fi
+
+			if [ ${avail_mem} -lt ${num} ]; then
+				((num = ${avail_mem}))
+				logger "Setting the heap size to $(($num / BYTES_PER_MEG))m which is the largest amount available in this container."
+			fi
+		else
+			logger "Unable to determine the maximum allowable RAM for this container's cgroup or node."
+			exit 1
+		fi
+
+		if [[ $num -lt $MIN_MEMORY_BYTES ]]; then
+			logger "A minimum of $(($MIN_MEMORY_BYTES / $BYTES_PER_MEG))m heap size is required but only $(($num / $BYTES_PER_MEG))m is available or was specified."
+			exit 1
+		fi
+
+		logger "The heap size will now be set to $(($num * 100 / avail_mem))% of the currently available memory."
+
+		# set value in artifactory.default
+		sed -i -r "s/export JAVA_OPTIONS=\"(.*?)-Xms[0-9]+[GgMm]i? -Xmx[0-9]+[GgMm]i? (.*)/export JAVA_OPTIONS=\"\1-Xms2G -Xmx2G \2/" ${ARTIFACTORY_HOME}/bin/artifactory.default
+
+	else
+		logger "HEAP_SIZE environment variable not set or invalid: ${HEAP_SIZE:-}"
+		logger "Keeping default standard values. Set HEAP_SIZE for increased performance."
+	fi
+}
+
 start() {
   createLogsLink
   . $ARTIFACTORY_HOME/bin/artifactory.default || errorArtHome "ERROR: Defaults file does not exist or not executable"
@@ -193,7 +248,7 @@ checkMounts
 setupDataDirs
 setDBType
 checkLockFile
-
+setJvmHeapSize
 
 echo; echo "====================================="; echo
 

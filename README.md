@@ -11,3 +11,4 @@ available environment variables:
  - `ARTIFACTORY_HOME` (default: `/var/opt/artifactory`)
  - `ARTIFACTORY_DATA` (default: `/data/artifactory`)
  - `ARTIFACTORY_USER_ID` (default: `1030`)
+ - `HEAP_SIZE` (default: `1024Mi`)
